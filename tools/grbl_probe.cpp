@@ -260,7 +260,9 @@ void classify(std::string_view line) {
         return;
     }
     if (auto s = parse_setting(line)) {
-        std::printf("SETTING  $%d=%s\n", s->number, s->value.c_str());
+        std::printf("SETTING  $%.*s=%.*s\n",
+                    static_cast<int>(s->key.size()),   s->key.data(),
+                    static_cast<int>(s->value.size()), s->value.data());
         return;
     }
     if (auto m = parse_push_message(line)) {
