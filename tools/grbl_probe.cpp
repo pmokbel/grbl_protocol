@@ -185,6 +185,20 @@ std::string format_pins(const PinFlags& p) {
     return s;
 }
 
+std::string format_position(const grbl_protocol::Position& p, const char* label) {
+    std::string s = " ";
+    s += label;
+    s += "=(";
+    char tmp[16];
+    for (std::uint8_t i = 0; i < p.count; ++i) {
+        if (i > 0) s += ',';
+        std::snprintf(tmp, sizeof(tmp), "%.3f", p.axes[i]);
+        s += tmp;
+    }
+    s += ')';
+    return s;
+}
+
 std::string format_status(const grbl_protocol::StatusReport& sr) {
     std::string s = "STATUS   state=";
     s += state_name(sr.state);
@@ -193,16 +207,8 @@ std::string format_status(const grbl_protocol::StatusReport& sr) {
         std::snprintf(buf, sizeof(buf), ":%d", *sr.sub_state);
         s += buf;
     }
-    if (sr.mpos) {
-        std::snprintf(buf, sizeof(buf), " mpos=(%.3f,%.3f,%.3f)",
-                      sr.mpos->x, sr.mpos->y, sr.mpos->z);
-        s += buf;
-    }
-    if (sr.wpos) {
-        std::snprintf(buf, sizeof(buf), " wpos=(%.3f,%.3f,%.3f)",
-                      sr.wpos->x, sr.wpos->y, sr.wpos->z);
-        s += buf;
-    }
+    if (sr.mpos) s += format_position(*sr.mpos, "mpos");
+    if (sr.wpos) s += format_position(*sr.wpos, "wpos");
     if (sr.fs) {
         std::snprintf(buf, sizeof(buf), " fs=(%.0f,%.0f)", sr.fs->feed, sr.fs->spindle);
         s += buf;

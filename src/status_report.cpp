@@ -35,18 +35,18 @@ std::optional<int> parse_int(std::string_view s) {
 
 std::optional<Position> parse_position(std::string_view s) {
     Position p{};
-    float* axes[] = { &p.x, &p.y, &p.z };
-    int i = 0;
-    while (!s.empty() && i < 3) {
+    while (!s.empty() && p.count < p.axes.size()) {
         auto comma = s.find(',');
         auto tok = comma == std::string_view::npos ? s : s.substr(0, comma);
         auto v = parse_float(tok);
         if (!v) return std::nullopt;
-        *axes[i++] = *v;
+        p.axes[p.count++] = *v;
         if (comma == std::string_view::npos) break;
         s.remove_prefix(comma + 1);
     }
-    if (i < 3) return std::nullopt;
+    if (p.count == 0) return std::nullopt;
+    // Axes beyond 6 are silently truncated -- forward-compat with any
+    // future fork that extends past XYZABC.
     return p;
 }
 

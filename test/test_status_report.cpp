@@ -13,9 +13,10 @@ TEST_CASE("parses minimal Idle report", "[status_report]") {
     REQUIRE_FALSE(r->sub_state.has_value());
 
     REQUIRE(r->mpos.has_value());
-    REQUIRE_THAT(r->mpos->x, WithinAbs(0.0, 1e-6));
-    REQUIRE_THAT(r->mpos->y, WithinAbs(0.0, 1e-6));
-    REQUIRE_THAT(r->mpos->z, WithinAbs(0.0, 1e-6));
+    REQUIRE(r->mpos->count == 3);
+    REQUIRE_THAT(r->mpos->axes[0], WithinAbs(0.0, 1e-6));
+    REQUIRE_THAT(r->mpos->axes[1], WithinAbs(0.0, 1e-6));
+    REQUIRE_THAT(r->mpos->axes[2], WithinAbs(0.0, 1e-6));
 
     REQUIRE(r->fs.has_value());
     REQUIRE_THAT(r->fs->feed,    WithinAbs(0.0, 1e-6));
@@ -29,13 +30,48 @@ TEST_CASE("parses Hold with substate, WPos, and feed/spindle", "[status_report]"
     REQUIRE(r->sub_state == 0);
 
     REQUIRE(r->wpos.has_value());
-    REQUIRE_THAT(r->wpos->x, WithinAbs(1.234, 1e-4));
-    REQUIRE_THAT(r->wpos->y, WithinAbs(-5.678, 1e-4));
-    REQUIRE_THAT(r->wpos->z, WithinAbs(9.0,    1e-6));
+    REQUIRE(r->wpos->count == 3);
+    REQUIRE_THAT(r->wpos->axes[0], WithinAbs(1.234, 1e-4));
+    REQUIRE_THAT(r->wpos->axes[1], WithinAbs(-5.678, 1e-4));
+    REQUIRE_THAT(r->wpos->axes[2], WithinAbs(9.0,    1e-6));
 
     REQUIRE(r->fs.has_value());
     REQUIRE_THAT(r->fs->feed,    WithinAbs(500.0,  1e-3));
     REQUIRE_THAT(r->fs->spindle, WithinAbs(8000.0, 1e-3));
+}
+
+TEST_CASE("parses 4-axis report (XYZA)", "[status_report]") {
+    auto r = parse_status_report("<Idle|MPos:1.0,2.0,3.0,4.0|FS:0,0>");
+    REQUIRE(r.has_value());
+    REQUIRE(r->mpos.has_value());
+    REQUIRE(r->mpos->count == 4);
+    REQUIRE_THAT(r->mpos->axes[0], WithinAbs(1.0, 1e-6));
+    REQUIRE_THAT(r->mpos->axes[3], WithinAbs(4.0, 1e-6));
+}
+
+TEST_CASE("parses 6-axis report (XYZABC)", "[status_report]") {
+    auto r = parse_status_report("<Idle|MPos:1.0,2.0,3.0,4.0,5.0,6.0>");
+    REQUIRE(r.has_value());
+    REQUIRE(r->mpos.has_value());
+    REQUIRE(r->mpos->count == 6);
+    REQUIRE_THAT(r->mpos->axes[5], WithinAbs(6.0, 1e-6));
+}
+
+TEST_CASE("parses 2-axis report (XY only)", "[status_report]") {
+    auto r = parse_status_report("<Idle|MPos:10.0,20.0>");
+    REQUIRE(r.has_value());
+    REQUIRE(r->mpos.has_value());
+    REQUIRE(r->mpos->count == 2);
+    REQUIRE_THAT(r->mpos->axes[0], WithinAbs(10.0, 1e-6));
+    REQUIRE_THAT(r->mpos->axes[1], WithinAbs(20.0, 1e-6));
+}
+
+TEST_CASE("truncates axes beyond 6", "[status_report]") {
+    auto r = parse_status_report("<Idle|MPos:1,2,3,4,5,6,7,8>");
+    REQUIRE(r.has_value());
+    REQUIRE(r->mpos.has_value());
+    REQUIRE(r->mpos->count == 6);
+    REQUIRE_THAT(r->mpos->axes[5], WithinAbs(6.0, 1e-6));
 }
 
 TEST_CASE("parses Pn pins and ignores unknown fields like Ov", "[status_report]") {
@@ -84,7 +120,7 @@ TEST_CASE("rejects malformed reports", "[status_report]") {
     REQUIRE_FALSE(parse_status_report("Idle|MPos:0,0,0").has_value());      // no angle brackets
     REQUIRE_FALSE(parse_status_report("<>").has_value());                   // empty body
     REQUIRE_FALSE(parse_status_report("<Bogus|MPos:0,0,0>").has_value());   // unknown state
-    REQUIRE_FALSE(parse_status_report("<Idle|MPos:0,0>").has_value());      // too few axes
+    REQUIRE_FALSE(parse_status_report("<Idle|MPos:>").has_value());         // empty axis list
     REQUIRE_FALSE(parse_status_report("<Idle|MPos:a,b,c>").has_value());    // non-numeric
     REQUIRE_FALSE(parse_status_report("<Hold:x|FS:0,0>").has_value());      // bad substate
 }

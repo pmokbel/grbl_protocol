@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+#include <cstdint>
 #include <optional>
 #include <string_view>
 
@@ -17,10 +19,13 @@ enum class MachineState {
     Sleep,
 };
 
+// GRBL/FluidNC supports up to 6 axes (XYZABC). `count` says how many of
+// the leading entries in `axes` are real; the rest are zero-initialized
+// but should not be read. Wire format is positional, so axis 0 == X,
+// 1 == Y, 2 == Z, then ABC if present.
 struct Position {
-    float x{};
-    float y{};
-    float z{};
+    std::array<float, 6> axes{};
+    std::uint8_t count{};
 };
 
 struct FeedSpindle {
