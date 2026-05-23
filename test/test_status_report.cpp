@@ -57,6 +57,18 @@ TEST_CASE("parses 6-axis report (XYZABC)", "[status_report]") {
     REQUIRE_THAT(r->mpos->axes[5], WithinAbs(6.0, 1e-6));
 }
 
+TEST_CASE("Position axis accessors return the right slots", "[status_report]") {
+    auto r = parse_status_report("<Idle|MPos:1.0,2.0,3.0,4.0,5.0,6.0>");
+    REQUIRE(r.has_value());
+    REQUIRE(r->mpos.has_value());
+    REQUIRE_THAT(r->mpos->x(), WithinAbs(1.0, 1e-6));
+    REQUIRE_THAT(r->mpos->y(), WithinAbs(2.0, 1e-6));
+    REQUIRE_THAT(r->mpos->z(), WithinAbs(3.0, 1e-6));
+    REQUIRE_THAT(r->mpos->a(), WithinAbs(4.0, 1e-6));
+    REQUIRE_THAT(r->mpos->b(), WithinAbs(5.0, 1e-6));
+    REQUIRE_THAT(r->mpos->c(), WithinAbs(6.0, 1e-6));
+}
+
 TEST_CASE("parses 2-axis report (XY only)", "[status_report]") {
     auto r = parse_status_report("<Idle|MPos:10.0,20.0>");
     REQUIRE(r.has_value());

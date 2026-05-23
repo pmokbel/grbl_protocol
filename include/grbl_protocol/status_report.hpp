@@ -25,9 +25,21 @@ enum class MachineState {
 // the leading entries in `axes` are real; the rest are zero-initialized
 // but should not be read. Wire format is positional, so axis 0 == X,
 // 1 == Y, 2 == Z, then ABC if present.
+//
+// The x()..c() accessors are convenience over axes[0..5]; they do NOT
+// check `count`, so on a 3-axis machine pos.a() returns 0.0f rather
+// than nullopt. Callers that care about axis presence should check
+// count first.
 struct Position {
     std::array<float, 6> axes{};
     std::uint8_t count{};
+
+    constexpr float x() const { return axes[0]; }
+    constexpr float y() const { return axes[1]; }
+    constexpr float z() const { return axes[2]; }
+    constexpr float a() const { return axes[3]; }
+    constexpr float b() const { return axes[4]; }
+    constexpr float c() const { return axes[5]; }
 };
 
 struct FeedSpindle {
