@@ -1,0 +1,36 @@
+version: "0.1.0"
+description: "GRBL/FluidNC ASCII protocol parser (C++17, controller-agnostic)"
+url: "https://github.com/pmokbel/grbl_protocol"
+repository: "https://github.com/pmokbel/grbl_protocol.git"
+license: "Apache-2.0"
+maintainers:
+  - "Paul Mokbel <paul@mokbel.com>"
+tags:
+  - cnc
+  - grbl
+  - fluidnc
+  - parser
+targets:
+  - esp32
+  - esp32s2
+  - esp32s3
+  - esp32c2
+  - esp32c3
+  - esp32c6
+  - esp32h2
+  - esp32p4
+files:
+  include:
+    - "include/**/*"
+    - "src/**/*"
+    - "CMakeLists.txt"
+    - "LICENSE"
+    - "NOTICE"
+    - "README.md"
+  exclude:
+    - "build/**/*"
+    - "test/**/*"
+    - "tools/**/*"
+    - ".idea/**/*"
+    - ".git/**/*"
+    - ".gitignore"

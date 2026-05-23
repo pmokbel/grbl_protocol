@@ -1,0 +1,24 @@
+{
+  "name": "grbl_protocol",
+  "version": "0.1.0",
+  "description": "GRBL/FluidNC ASCII protocol parser (C++17, controller-agnostic)",
+  "keywords": ["cnc", "grbl", "fluidnc", "parser", "motion-control"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pmokbel/grbl_protocol.git"
+  },
+  "authors": [
+    {
+      "name": "Paul Mokbel",
+      "email": "paul@mokbel.com",
+      "maintainer": true
+    }
+  ],
+  "license": "Apache-2.0",
+  "frameworks": ["arduino", "espidf"],
+  "platforms": ["espressif32", "raspberrypi", "atmelsam", "ststm32", "nordicnrf52"],
+  "headers": "grbl_protocol/status_report.hpp",
+  "build": {
+    "flags": ["-std=c++17"]
+  }
+}
