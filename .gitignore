@@ -1,0 +1,19 @@
+# build
+build/
+build-*/
+cmake-build-*/
+*.o
+*.a
+
+# IDE
+.idea/
+.vscode/
+.cache/
+compile_commands.json
+
+# macOS
+.DS_Store
+
+# captured wire traces (kept under test/fixtures/ when committed)
+*.bin
+!test/fixtures/*.bin
