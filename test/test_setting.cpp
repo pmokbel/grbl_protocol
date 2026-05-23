@@ -1,4 +1,4 @@
-#include "grbl_protocol/settings.hpp"
+#include "grbl_protocol/setting.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 

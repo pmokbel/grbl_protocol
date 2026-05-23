@@ -1,6 +1,6 @@
 #include "grbl_protocol/push_message.hpp"
 #include "grbl_protocol/response.hpp"
-#include "grbl_protocol/settings.hpp"
+#include "grbl_protocol/setting.hpp"
 #include "grbl_protocol/status_report.hpp"
 
 #include <arpa/inet.h>

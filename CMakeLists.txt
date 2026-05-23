@@ -2,7 +2,7 @@ if(ESP_PLATFORM)
     idf_component_register(
         SRCS
             "src/status_report.cpp"
-            "src/settings.cpp"
+            "src/setting.cpp"
             "src/response.cpp"
             "src/push_message.cpp"
         INCLUDE_DIRS
@@ -29,7 +29,7 @@ endif()
 
 add_library(grbl_protocol
     src/status_report.cpp
-    src/settings.cpp
+    src/setting.cpp
     src/response.cpp
     src/push_message.cpp
 )

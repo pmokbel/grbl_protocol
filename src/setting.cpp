@@ -1,4 +1,4 @@
-#include "grbl_protocol/settings.hpp"
+#include "grbl_protocol/setting.hpp"
 
 namespace grbl_protocol {
 

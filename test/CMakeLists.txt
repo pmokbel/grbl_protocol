@@ -8,7 +8,7 @@ FetchContent_MakeAvailable(Catch2)
 
 add_executable(grbl_protocol_tests
     test_status_report.cpp
-    test_settings.cpp
+    test_setting.cpp
     test_response.cpp
     test_push_message.cpp
 )
