@@ -201,4 +201,19 @@ std::optional<StatusReport> parse_status_report(std::string_view line) {
     return report;
 }
 
+const char* name(MachineState s) {
+    switch (s) {
+        case MachineState::Idle:  return "Idle";
+        case MachineState::Run:   return "Run";
+        case MachineState::Hold:  return "Hold";
+        case MachineState::Jog:   return "Jog";
+        case MachineState::Alarm: return "Alarm";
+        case MachineState::Door:  return "Door";
+        case MachineState::Check: return "Check";
+        case MachineState::Home:  return "Home";
+        case MachineState::Sleep: return "Sleep";
+    }
+    return "?";
+}
+
 } // namespace grbl_protocol

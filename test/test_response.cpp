@@ -2,6 +2,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <string_view>
+
 using namespace grbl_protocol;
 
 TEST_CASE("parses ok", "[response]") {
@@ -31,4 +33,10 @@ TEST_CASE("rejects non-response lines", "[response]") {
     REQUIRE_FALSE(parse_response("error:x").has_value());
     REQUIRE_FALSE(parse_response("ALARM").has_value());
     REQUIRE_FALSE(parse_response("$10=1").has_value());
+}
+
+TEST_CASE("name(ResponseKind) returns wire tokens", "[response]") {
+    REQUIRE(std::string_view{name(ResponseKind::Ok)}    == "ok");
+    REQUIRE(std::string_view{name(ResponseKind::Error)} == "error");
+    REQUIRE(std::string_view{name(ResponseKind::Alarm)} == "ALARM");
 }

@@ -4,6 +4,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include <string_view>
+
 using namespace grbl_protocol;
 using Catch::Matchers::WithinAbs;
 
@@ -70,4 +72,47 @@ TEST_CASE("status report G: field populates StatusReport.modals", "[modal_state]
     REQUIRE(r->modals->motion == MotionMode::G1);
     REQUIRE(r->modals->wcs    == WCS::G54);
     REQUIRE(r->modals->units  == Units::Mm);
+}
+
+TEST_CASE("name() returns wire-form tokens for MotionMode and WCS", "[modal_state]") {
+    REQUIRE(std::string_view{name(MotionMode::G0)}    == "G0");
+    REQUIRE(std::string_view{name(MotionMode::G38_2)} == "G38.2");
+    REQUIRE(std::string_view{name(MotionMode::G80)}   == "G80");
+
+    REQUIRE(std::string_view{name(WCS::G54)}   == "G54");
+    REQUIRE(std::string_view{name(WCS::G59)}   == "G59");
+    REQUIRE(std::string_view{name(WCS::G59_1)} == "G59.1");
+    REQUIRE(std::string_view{name(WCS::G59_2)} == "G59.2");
+    REQUIRE(std::string_view{name(WCS::G59_3)} == "G59.3");
+}
+
+TEST_CASE("name() returns semantic labels for plane/units/distance/feed-rate", "[modal_state]") {
+    REQUIRE(std::string_view{name(Plane::XY)} == "XY");
+    REQUIRE(std::string_view{name(Plane::XZ)} == "XZ");
+    REQUIRE(std::string_view{name(Plane::YZ)} == "YZ");
+
+    REQUIRE(std::string_view{name(Units::Mm)}     == "mm");
+    REQUIRE(std::string_view{name(Units::Inches)} == "in");
+
+    REQUIRE(std::string_view{name(DistanceMode::Absolute)}    == "absolute");
+    REQUIRE(std::string_view{name(DistanceMode::Incremental)} == "incremental");
+
+    REQUIRE(std::string_view{name(FeedRateMode::InverseTime)}        == "inverse-time");
+    REQUIRE(std::string_view{name(FeedRateMode::UnitsPerMinute)}     == "units-per-min");
+    REQUIRE(std::string_view{name(FeedRateMode::UnitsPerRevolution)} == "units-per-rev");
+}
+
+TEST_CASE("name() returns semantic labels for spindle/coolant/program-flow", "[modal_state]") {
+    REQUIRE(std::string_view{name(SpindleMode::Off)} == "off");
+    REQUIRE(std::string_view{name(SpindleMode::Cw)}  == "CW");
+    REQUIRE(std::string_view{name(SpindleMode::Ccw)} == "CCW");
+
+    REQUIRE(std::string_view{name(CoolantMode::Off)}   == "off");
+    REQUIRE(std::string_view{name(CoolantMode::Mist)}  == "mist");
+    REQUIRE(std::string_view{name(CoolantMode::Flood)} == "flood");
+
+    REQUIRE(std::string_view{name(ProgramFlow::Pause)}         == "pause");
+    REQUIRE(std::string_view{name(ProgramFlow::OptionalPause)} == "optional-pause");
+    REQUIRE(std::string_view{name(ProgramFlow::Stop)}          == "stop");
+    REQUIRE(std::string_view{name(ProgramFlow::Reset)}         == "reset");
 }

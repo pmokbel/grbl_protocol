@@ -21,7 +21,6 @@
 
 using namespace std::chrono_literals;
 using grbl_protocol::decode_message;
-using grbl_protocol::MachineState;
 using grbl_protocol::MessageKind;
 using grbl_protocol::ModalState;
 using grbl_protocol::parse_modal_state;
@@ -31,7 +30,6 @@ using grbl_protocol::parse_setting;
 using grbl_protocol::parse_status_report;
 using grbl_protocol::PinFlags;
 using grbl_protocol::ResponseKind;
-using grbl_protocol::WCS;
 
 namespace {
 
@@ -160,21 +158,6 @@ std::string_view error_description(int code) {
     }
 }
 
-const char* state_name(MachineState s) {
-    switch (s) {
-        case MachineState::Idle:  return "Idle";
-        case MachineState::Run:   return "Run";
-        case MachineState::Hold:  return "Hold";
-        case MachineState::Jog:   return "Jog";
-        case MachineState::Alarm: return "Alarm";
-        case MachineState::Door:  return "Door";
-        case MachineState::Check: return "Check";
-        case MachineState::Home:  return "Home";
-        case MachineState::Sleep: return "Sleep";
-    }
-    return "?";
-}
-
 std::string format_pins(const PinFlags& p) {
     std::string s;
     if (p.x)            s += 'X';
@@ -203,57 +186,23 @@ std::string format_position(const grbl_protocol::Position& p, const char* label)
     return s;
 }
 
-const char* wcs_name(WCS w) {
-    switch (w) {
-        case WCS::G54:   return "G54";
-        case WCS::G55:   return "G55";
-        case WCS::G56:   return "G56";
-        case WCS::G57:   return "G57";
-        case WCS::G58:   return "G58";
-        case WCS::G59:   return "G59";
-        case WCS::G59_1: return "G59.1";
-        case WCS::G59_2: return "G59.2";
-        case WCS::G59_3: return "G59.3";
-    }
-    return "?";
-}
-
-const char* motion_name(grbl_protocol::MotionMode m) {
-    using M = grbl_protocol::MotionMode;
-    switch (m) {
-        case M::G0:    return "G0";
-        case M::G1:    return "G1";
-        case M::G2:    return "G2";
-        case M::G3:    return "G3";
-        case M::G38_2: return "G38.2";
-        case M::G38_3: return "G38.3";
-        case M::G38_4: return "G38.4";
-        case M::G38_5: return "G38.5";
-        case M::G80:   return "G80";
-    }
-    return "?";
-}
-
 std::string format_modals(const ModalState& m) {
     std::string s;
-    auto add = [&](const char* kv) { if (!s.empty()) s += ' '; s += kv; };
-    if (m.motion)   { std::string b = "motion="; b += motion_name(*m.motion); add(b.c_str()); }
-    if (m.wcs)      { std::string b = "wcs=";    b += wcs_name(*m.wcs);       add(b.c_str()); }
-    if (m.plane)    { add(*m.plane == grbl_protocol::Plane::XY ? "plane=XY"
-                          : *m.plane == grbl_protocol::Plane::XZ ? "plane=XZ" : "plane=YZ"); }
-    if (m.units)    { add(*m.units == grbl_protocol::Units::Mm ? "units=mm" : "units=in"); }
-    if (m.distance) { add(*m.distance == grbl_protocol::DistanceMode::Absolute
-                          ? "dist=abs" : "dist=inc"); }
-    if (m.spindle)  { add(*m.spindle == grbl_protocol::SpindleMode::Off ? "spindle=off"
-                          : *m.spindle == grbl_protocol::SpindleMode::Cw ? "spindle=CW"
-                          : "spindle=CCW"); }
-    if (m.coolant)  { add(*m.coolant == grbl_protocol::CoolantMode::Off ? "coolant=off"
-                          : *m.coolant == grbl_protocol::CoolantMode::Mist ? "coolant=mist"
-                          : "coolant=flood"); }
-    char buf[32];
-    if (m.tool)          { std::snprintf(buf, sizeof(buf), "tool=%d", *m.tool);        add(buf); }
-    if (m.feed)          { std::snprintf(buf, sizeof(buf), "feed=%.0f", *m.feed);      add(buf); }
-    if (m.spindle_speed) { std::snprintf(buf, sizeof(buf), "S=%.0f", *m.spindle_speed); add(buf); }
+    char buf[64];
+    auto add_kv = [&](const char* k, const char* v) {
+        if (!s.empty()) s += ' ';
+        s += k; s += '='; s += v;
+    };
+    if (m.motion)   add_kv("motion",  name(*m.motion));
+    if (m.wcs)      add_kv("wcs",     name(*m.wcs));
+    if (m.plane)    add_kv("plane",   name(*m.plane));
+    if (m.units)    add_kv("units",   name(*m.units));
+    if (m.distance) add_kv("dist",    name(*m.distance));
+    if (m.spindle)  add_kv("spindle", name(*m.spindle));
+    if (m.coolant)  add_kv("coolant", name(*m.coolant));
+    if (m.tool)          { std::snprintf(buf, sizeof(buf), "tool=%d",  *m.tool);          if (!s.empty()) s += ' '; s += buf; }
+    if (m.feed)          { std::snprintf(buf, sizeof(buf), "feed=%.0f", *m.feed);         if (!s.empty()) s += ' '; s += buf; }
+    if (m.spindle_speed) { std::snprintf(buf, sizeof(buf), "S=%.0f",   *m.spindle_speed); if (!s.empty()) s += ' '; s += buf; }
     return s;
 }
 
@@ -269,7 +218,7 @@ std::string format_accessory(const grbl_protocol::AccessoryState& a) {
 
 std::string format_status(const grbl_protocol::StatusReport& sr) {
     std::string s = "STATUS   state=";
-    s += state_name(sr.state);
+    s += name(sr.state);
     char buf[64];
     if (sr.sub_state) {
         std::snprintf(buf, sizeof(buf), ":%d", *sr.sub_state);
@@ -302,7 +251,7 @@ std::string format_status(const grbl_protocol::StatusReport& sr) {
     }
     if (sr.modals && sr.modals->wcs) {
         s += " wcs=";
-        s += wcs_name(*sr.modals->wcs);
+        s += name(*sr.modals->wcs);
     }
     if (sr.pins) {
         s += " pins=";

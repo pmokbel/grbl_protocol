@@ -30,4 +30,13 @@ std::optional<Response> parse_response(std::string_view line) {
     return std::nullopt;
 }
 
+const char* name(ResponseKind k) {
+    switch (k) {
+        case ResponseKind::Ok:    return "ok";
+        case ResponseKind::Error: return "error";
+        case ResponseKind::Alarm: return "ALARM";
+    }
+    return "?";
+}
+
 } // namespace grbl_protocol

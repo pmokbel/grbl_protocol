@@ -3,6 +3,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include <string_view>
+
 using namespace grbl_protocol;
 using Catch::Matchers::WithinAbs;
 
@@ -55,6 +57,13 @@ TEST_CASE("parses 6-axis report (XYZABC)", "[status_report]") {
     REQUIRE(r->mpos.has_value());
     REQUIRE(r->mpos->count == 6);
     REQUIRE_THAT(r->mpos->axes[5], WithinAbs(6.0, 1e-6));
+}
+
+TEST_CASE("name(MachineState) returns wire tokens", "[status_report]") {
+    REQUIRE(std::string_view{name(MachineState::Idle)}  == "Idle");
+    REQUIRE(std::string_view{name(MachineState::Run)}   == "Run");
+    REQUIRE(std::string_view{name(MachineState::Alarm)} == "Alarm");
+    REQUIRE(std::string_view{name(MachineState::Sleep)} == "Sleep");
 }
 
 TEST_CASE("Position axis accessors return the right slots", "[status_report]") {

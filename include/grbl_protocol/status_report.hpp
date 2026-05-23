@@ -99,4 +99,11 @@ struct StatusReport {
 
 std::optional<StatusReport> parse_status_report(std::string_view line);
 
+// Canonical short label for the enum value. For enums whose wire token
+// IS the natural name (MachineState, ResponseKind, MotionMode, WCS),
+// name() returns the exact wire string -- so it round-trips with what
+// FluidNC/GRBL sends. Returned pointer is to a string literal; safe to
+// store, never null.
+const char* name(MachineState s);
+
 } // namespace grbl_protocol

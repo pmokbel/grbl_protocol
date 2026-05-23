@@ -117,4 +117,96 @@ ModalState parse_modal_state(std::string_view s) {
     return m;
 }
 
+const char* name(MotionMode m) {
+    switch (m) {
+        case MotionMode::G0:    return "G0";
+        case MotionMode::G1:    return "G1";
+        case MotionMode::G2:    return "G2";
+        case MotionMode::G3:    return "G3";
+        case MotionMode::G38_2: return "G38.2";
+        case MotionMode::G38_3: return "G38.3";
+        case MotionMode::G38_4: return "G38.4";
+        case MotionMode::G38_5: return "G38.5";
+        case MotionMode::G80:   return "G80";
+    }
+    return "?";
+}
+
+const char* name(Plane p) {
+    switch (p) {
+        case Plane::XY: return "XY";
+        case Plane::XZ: return "XZ";
+        case Plane::YZ: return "YZ";
+    }
+    return "?";
+}
+
+const char* name(Units u) {
+    switch (u) {
+        case Units::Inches: return "in";
+        case Units::Mm:     return "mm";
+    }
+    return "?";
+}
+
+const char* name(WCS w) {
+    switch (w) {
+        case WCS::G54:   return "G54";
+        case WCS::G55:   return "G55";
+        case WCS::G56:   return "G56";
+        case WCS::G57:   return "G57";
+        case WCS::G58:   return "G58";
+        case WCS::G59:   return "G59";
+        case WCS::G59_1: return "G59.1";
+        case WCS::G59_2: return "G59.2";
+        case WCS::G59_3: return "G59.3";
+    }
+    return "?";
+}
+
+const char* name(DistanceMode d) {
+    switch (d) {
+        case DistanceMode::Absolute:    return "absolute";
+        case DistanceMode::Incremental: return "incremental";
+    }
+    return "?";
+}
+
+const char* name(FeedRateMode f) {
+    switch (f) {
+        case FeedRateMode::InverseTime:        return "inverse-time";
+        case FeedRateMode::UnitsPerMinute:     return "units-per-min";
+        case FeedRateMode::UnitsPerRevolution: return "units-per-rev";
+    }
+    return "?";
+}
+
+const char* name(SpindleMode s) {
+    switch (s) {
+        case SpindleMode::Off: return "off";
+        case SpindleMode::Cw:  return "CW";
+        case SpindleMode::Ccw: return "CCW";
+    }
+    return "?";
+}
+
+const char* name(CoolantMode c) {
+    switch (c) {
+        case CoolantMode::Off:   return "off";
+        case CoolantMode::Mist:  return "mist";
+        case CoolantMode::Flood: return "flood";
+    }
+    return "?";
+}
+
+const char* name(ProgramFlow p) {
+    switch (p) {
+        case ProgramFlow::Pause:         return "pause";
+        case ProgramFlow::OptionalPause: return "optional-pause";
+        case ProgramFlow::Stop:          return "stop";
+        case ProgramFlow::Reset:         return "reset";
+    }
+    return "?";
+}
+
 } // namespace grbl_protocol

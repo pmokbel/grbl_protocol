@@ -97,4 +97,24 @@ struct ModalState {
 
 ModalState parse_modal_state(std::string_view s);
 
+// Canonical short label per enum value. Two conventions in play:
+//  - MotionMode and WCS return the wire G-code token, so they round-trip
+//    with what FluidNC/GRBL sends: WCS::G59_1 -> "G59.1" (DOT, not the
+//    underscore that the C++ enumerator carries), MotionMode::G38_2 ->
+//    "G38.2", etc.
+//  - Plane / Units / DistanceMode / FeedRateMode / SpindleMode /
+//    CoolantMode / ProgramFlow return a short semantic label (e.g.
+//    "XY", "mm", "absolute", "CW") rather than the G/M-code, because
+//    the code number on its own ("G17") reads worse in UI than the
+//    concept name. All return values are string literals.
+const char* name(MotionMode m);
+const char* name(Plane p);
+const char* name(Units u);
+const char* name(WCS w);
+const char* name(DistanceMode d);
+const char* name(FeedRateMode f);
+const char* name(SpindleMode s);
+const char* name(CoolantMode c);
+const char* name(ProgramFlow p);
+
 } // namespace grbl_protocol
