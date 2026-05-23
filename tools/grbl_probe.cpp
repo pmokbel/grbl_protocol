@@ -20,6 +20,7 @@
 
 using namespace std::chrono_literals;
 using grbl_protocol::alarm_description;
+using grbl_protocol::error_description;
 using grbl_protocol::MachineState;
 using grbl_protocol::parse_push_message;
 using grbl_protocol::parse_response;
@@ -59,6 +60,35 @@ std::string format_pins(const PinFlags& p) {
     return s;
 }
 
+std::string format_status(const grbl_protocol::StatusReport& sr) {
+    std::string s = "STATUS   state=";
+    s += state_name(sr.state);
+    char buf[64];
+    if (sr.sub_state) {
+        std::snprintf(buf, sizeof(buf), ":%d", *sr.sub_state);
+        s += buf;
+    }
+    if (sr.mpos) {
+        std::snprintf(buf, sizeof(buf), " mpos=(%.3f,%.3f,%.3f)",
+                      sr.mpos->x, sr.mpos->y, sr.mpos->z);
+        s += buf;
+    }
+    if (sr.wpos) {
+        std::snprintf(buf, sizeof(buf), " wpos=(%.3f,%.3f,%.3f)",
+                      sr.wpos->x, sr.wpos->y, sr.wpos->z);
+        s += buf;
+    }
+    if (sr.fs) {
+        std::snprintf(buf, sizeof(buf), " fs=(%.0f,%.0f)", sr.fs->feed, sr.fs->spindle);
+        s += buf;
+    }
+    if (sr.pins) {
+        s += " pins=";
+        s += format_pins(*sr.pins);
+    }
+    return s;
+}
+
 int connect_tcp(const char* host, const char* port) {
     addrinfo hints{};
     hints.ai_family = AF_UNSPEC;
@@ -87,9 +117,13 @@ void classify(std::string_view line) {
             case ResponseKind::Ok:
                 std::printf("RESPONSE ok\n");
                 break;
-            case ResponseKind::Error:
-                std::printf("RESPONSE error code=%d\n", *r->code);
+            case ResponseKind::Error: {
+                auto desc = error_description(*r->code);
+                std::printf("RESPONSE error code=%d -- %.*s\n",
+                            *r->code,
+                            static_cast<int>(desc.size()), desc.data());
                 break;
+            }
             case ResponseKind::Alarm: {
                 auto desc = alarm_description(*r->code);
                 std::printf("RESPONSE alarm code=%d -- %.*s\n",
@@ -111,18 +145,12 @@ void classify(std::string_view line) {
         return;
     }
     if (auto sr = parse_status_report(line)) {
-        std::printf("STATUS   state=%s", state_name(sr->state));
-        if (sr->sub_state) std::printf(":%d", *sr->sub_state);
-        if (sr->mpos)  std::printf(" mpos=(%.3f,%.3f,%.3f)",
-                                    sr->mpos->x, sr->mpos->y, sr->mpos->z);
-        if (sr->wpos)  std::printf(" wpos=(%.3f,%.3f,%.3f)",
-                                    sr->wpos->x, sr->wpos->y, sr->wpos->z);
-        if (sr->fs)    std::printf(" fs=(%.0f,%.0f)", sr->fs->feed, sr->fs->spindle);
-        if (sr->pins)  {
-            auto pins = format_pins(*sr->pins);
-            std::printf(" pins=%s", pins.c_str());
+        static std::string last_status;
+        auto formatted = format_status(*sr);
+        if (formatted != last_status) {
+            std::printf("%s\n", formatted.c_str());
+            last_status = std::move(formatted);
         }
-        std::printf("\n");
         return;
     }
     std::printf("UNKNOWN  %.*s\n", static_cast<int>(line.size()), line.data());
@@ -141,44 +169,101 @@ bool send_all(int fd, std::string_view data) {
     return true;
 }
 
-// Reads until poll() times out with no new bytes AND we've seen a terminating
-// ok/error since the last command, or until the overall deadline elapses.
-void drain_until_ok(int fd, std::chrono::milliseconds idle_ms, std::chrono::milliseconds deadline_ms) {
-    auto start = std::chrono::steady_clock::now();
-    std::string buf;
-    bool got_terminator = false;
+// Single-char lines matching these are sent raw (no \n) so they're
+// interpreted as GRBL real-time commands rather than regular g-code lines.
+bool is_realtime(char c) {
+    return c == '?' || c == '!' || c == '~' || c == '\x18';
+}
+
+void handle_user_line(int fd, std::string_view line) {
+    if (line.empty()) return;
+    if (line.size() == 1 && is_realtime(line[0])) {
+        send_all(fd, line);
+        return;
+    }
+    std::string buf(line);
+    buf.push_back('\n');
+    send_all(fd, buf);
+}
+
+void drain_socket(int fd, std::string& in_buf) {
+    char chunk[1024];
+    while (true) {
+        auto n = ::recv(fd, chunk, sizeof(chunk), MSG_DONTWAIT);
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) return;
+            if (errno == EINTR) continue;
+            std::perror("recv");
+            return;
+        }
+        if (n == 0) {
+            std::fprintf(stderr, "connection closed by peer\n");
+            std::exit(0);
+        }
+        in_buf.append(chunk, static_cast<size_t>(n));
+        size_t pos;
+        while ((pos = in_buf.find('\n')) != std::string::npos) {
+            std::string_view line(in_buf.data(), pos);
+            if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+            classify(line);
+            in_buf.erase(0, pos + 1);
+        }
+    }
+}
+
+void interactive_loop(int fd, std::chrono::milliseconds poll_interval) {
+    std::string in_buf;
+    std::string out_buf;
+    auto next_poll = std::chrono::steady_clock::now() + poll_interval;
 
     while (true) {
         auto now = std::chrono::steady_clock::now();
-        if (now - start > deadline_ms) break;
-        if (got_terminator) break;
+        auto until_poll = std::chrono::duration_cast<std::chrono::milliseconds>(next_poll - now);
+        int timeout_ms = until_poll.count() < 0 ? 0 : static_cast<int>(until_poll.count());
 
-        pollfd pfd{fd, POLLIN, 0};
-        int rc = ::poll(&pfd, 1, static_cast<int>(idle_ms.count()));
+        pollfd pfds[2] = {
+            {fd, POLLIN, 0},
+            {STDIN_FILENO, POLLIN, 0},
+        };
+        int rc = ::poll(pfds, 2, timeout_ms);
         if (rc < 0) {
             if (errno == EINTR) continue;
             std::perror("poll");
             return;
         }
-        if (rc == 0) continue;
 
-        char chunk[1024];
-        auto n = ::recv(fd, chunk, sizeof(chunk), 0);
-        if (n <= 0) {
-            if (n < 0) std::perror("recv");
+        if (std::chrono::steady_clock::now() >= next_poll) {
+            send_all(fd, "?");
+            next_poll = std::chrono::steady_clock::now() + poll_interval;
+        }
+
+        if (pfds[0].revents & POLLIN) {
+            drain_socket(fd, in_buf);
+        }
+        if (pfds[0].revents & (POLLHUP | POLLERR)) {
+            std::fprintf(stderr, "socket closed/error\n");
             return;
         }
-        buf.append(chunk, static_cast<size_t>(n));
 
-        size_t pos;
-        while ((pos = buf.find('\n')) != std::string::npos) {
-            std::string_view line(buf.data(), pos);
-            if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
-            classify(line);
-            if (auto r = parse_response(line); r && r->kind != ResponseKind::Alarm) {
-                got_terminator = true;
+        if (pfds[1].revents & POLLIN) {
+            char chunk[256];
+            auto n = ::read(STDIN_FILENO, chunk, sizeof(chunk));
+            if (n <= 0) {
+                std::fprintf(stderr, "stdin EOF, exiting\n");
+                return;
             }
-            buf.erase(0, pos + 1);
+            out_buf.append(chunk, static_cast<size_t>(n));
+            size_t pos;
+            while ((pos = out_buf.find('\n')) != std::string::npos) {
+                std::string_view line(out_buf.data(), pos);
+                if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+                handle_user_line(fd, line);
+                out_buf.erase(0, pos + 1);
+            }
+        }
+        if (pfds[1].revents & POLLHUP) {
+            std::fprintf(stderr, "stdin closed, exiting\n");
+            return;
         }
     }
 }
@@ -195,14 +280,12 @@ int main(int argc, char** argv) {
         return 1;
     }
     std::fprintf(stderr, "connected to %s:%s\n", host, port);
+    std::fprintf(stderr,
+                 "interactive console. Ctrl-D to quit. "
+                 "Single-char lines ?/!/~/<Ctrl-X> are sent as GRBL real-time bytes; "
+                 "anything else gets a newline appended. ? auto-polled every 250ms.\n");
 
-    drain_until_ok(fd, 300ms, 2000ms);
-
-    if (!send_all(fd, "$I\n")) { ::close(fd); return 1; }
-    drain_until_ok(fd, 300ms, 3000ms);
-
-    if (!send_all(fd, "$$\n")) { ::close(fd); return 1; }
-    drain_until_ok(fd, 300ms, 5000ms);
+    interactive_loop(fd, 250ms);
 
     ::close(fd);
     return 0;
