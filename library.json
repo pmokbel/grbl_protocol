@@ -1,6 +1,6 @@
 {
   "name": "grbl_protocol",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "GRBL/FluidNC ASCII protocol parser (C++17, controller-agnostic)",
   "keywords": ["cnc", "grbl", "fluidnc", "parser", "motion-control"],
   "repository": {

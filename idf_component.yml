@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.3.0"
 description: "GRBL/FluidNC ASCII protocol parser (C++17, controller-agnostic)"
 url: "https://github.com/pmokbel/grbl_protocol"
 repository: "https://github.com/pmokbel/grbl_protocol.git"
