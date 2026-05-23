@@ -20,8 +20,10 @@
 
 using namespace std::chrono_literals;
 using grbl_protocol::alarm_description;
+using grbl_protocol::decode_message;
 using grbl_protocol::error_description;
 using grbl_protocol::MachineState;
+using grbl_protocol::MessageKind;
 using grbl_protocol::parse_push_message;
 using grbl_protocol::parse_response;
 using grbl_protocol::parse_setting;
@@ -30,6 +32,11 @@ using grbl_protocol::PinFlags;
 using grbl_protocol::ResponseKind;
 
 namespace {
+
+// Last STATUS line we printed. Held at file scope so handle_user_line()
+// can clear it on each user input — without that, dedupe makes the tool
+// look frozen whenever the controller sits in a stable state.
+std::string g_last_status;
 
 const char* state_name(MachineState s) {
     switch (s) {
@@ -139,17 +146,40 @@ void classify(std::string_view line) {
         return;
     }
     if (auto m = parse_push_message(line)) {
-        std::printf("PUSH     [%.*s] %.*s\n",
-                    static_cast<int>(m->key.size()), m->key.data(),
-                    static_cast<int>(m->value.size()), m->value.data());
+        if (m->key == "MSG") {
+            auto dm = decode_message(m->value);
+            const char* tag = "MSG";
+            switch (dm.kind) {
+                case MessageKind::Welcome:   tag = "WELCOME";    break;
+                case MessageKind::AlarmHint: tag = "ALARM-HINT"; break;
+                case MessageKind::Unlocked:  tag = "UNLOCKED";   break;
+                case MessageKind::Homed:     tag = "HOMED";      break;
+                case MessageKind::Error:     tag = "ERR";        break;
+                case MessageKind::Info:      tag = "INFO";       break;
+                case MessageKind::Warning:   tag = "WARN";       break;
+                case MessageKind::Debug:     tag = "DBG";        break;
+                case MessageKind::Critical:  tag = "CRIT";       break;
+                case MessageKind::Other:     tag = "MSG";        break;
+            }
+            if (dm.body.empty()) {
+                std::printf("PUSH     [%s]\n", tag);
+            } else {
+                std::printf("PUSH     [%s] %.*s\n",
+                            tag,
+                            static_cast<int>(dm.body.size()), dm.body.data());
+            }
+        } else {
+            std::printf("PUSH     [%.*s] %.*s\n",
+                        static_cast<int>(m->key.size()), m->key.data(),
+                        static_cast<int>(m->value.size()), m->value.data());
+        }
         return;
     }
     if (auto sr = parse_status_report(line)) {
-        static std::string last_status;
         auto formatted = format_status(*sr);
-        if (formatted != last_status) {
+        if (formatted != g_last_status) {
             std::printf("%s\n", formatted.c_str());
-            last_status = std::move(formatted);
+            g_last_status = std::move(formatted);
         }
         return;
     }
@@ -177,6 +207,10 @@ bool is_realtime(char c) {
 
 void handle_user_line(int fd, std::string_view line) {
     if (line.empty()) return;
+    // Force the next STATUS to print regardless of whether the controller's
+    // state actually changes: gives the user immediate visible confirmation
+    // that their command landed, even when state is stable (e.g. in Hold).
+    g_last_status.clear();
     if (line.size() == 1 && is_realtime(line[0])) {
         send_all(fd, line);
         return;
