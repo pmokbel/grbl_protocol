@@ -1,3 +1,4 @@
+#include "grbl_protocol/modal_state.hpp"
 #include "grbl_protocol/push_message.hpp"
 #include "grbl_protocol/response.hpp"
 #include "grbl_protocol/setting.hpp"
@@ -22,12 +23,15 @@ using namespace std::chrono_literals;
 using grbl_protocol::decode_message;
 using grbl_protocol::MachineState;
 using grbl_protocol::MessageKind;
+using grbl_protocol::ModalState;
+using grbl_protocol::parse_modal_state;
 using grbl_protocol::parse_push_message;
 using grbl_protocol::parse_response;
 using grbl_protocol::parse_setting;
 using grbl_protocol::parse_status_report;
 using grbl_protocol::PinFlags;
 using grbl_protocol::ResponseKind;
+using grbl_protocol::WCS;
 
 namespace {
 
@@ -199,6 +203,60 @@ std::string format_position(const grbl_protocol::Position& p, const char* label)
     return s;
 }
 
+const char* wcs_name(WCS w) {
+    switch (w) {
+        case WCS::G54:   return "G54";
+        case WCS::G55:   return "G55";
+        case WCS::G56:   return "G56";
+        case WCS::G57:   return "G57";
+        case WCS::G58:   return "G58";
+        case WCS::G59:   return "G59";
+        case WCS::G59_1: return "G59.1";
+        case WCS::G59_2: return "G59.2";
+        case WCS::G59_3: return "G59.3";
+    }
+    return "?";
+}
+
+const char* motion_name(grbl_protocol::MotionMode m) {
+    using M = grbl_protocol::MotionMode;
+    switch (m) {
+        case M::G0:    return "G0";
+        case M::G1:    return "G1";
+        case M::G2:    return "G2";
+        case M::G3:    return "G3";
+        case M::G38_2: return "G38.2";
+        case M::G38_3: return "G38.3";
+        case M::G38_4: return "G38.4";
+        case M::G38_5: return "G38.5";
+        case M::G80:   return "G80";
+    }
+    return "?";
+}
+
+std::string format_modals(const ModalState& m) {
+    std::string s;
+    auto add = [&](const char* kv) { if (!s.empty()) s += ' '; s += kv; };
+    if (m.motion)   { std::string b = "motion="; b += motion_name(*m.motion); add(b.c_str()); }
+    if (m.wcs)      { std::string b = "wcs=";    b += wcs_name(*m.wcs);       add(b.c_str()); }
+    if (m.plane)    { add(*m.plane == grbl_protocol::Plane::XY ? "plane=XY"
+                          : *m.plane == grbl_protocol::Plane::XZ ? "plane=XZ" : "plane=YZ"); }
+    if (m.units)    { add(*m.units == grbl_protocol::Units::Mm ? "units=mm" : "units=in"); }
+    if (m.distance) { add(*m.distance == grbl_protocol::DistanceMode::Absolute
+                          ? "dist=abs" : "dist=inc"); }
+    if (m.spindle)  { add(*m.spindle == grbl_protocol::SpindleMode::Off ? "spindle=off"
+                          : *m.spindle == grbl_protocol::SpindleMode::Cw ? "spindle=CW"
+                          : "spindle=CCW"); }
+    if (m.coolant)  { add(*m.coolant == grbl_protocol::CoolantMode::Off ? "coolant=off"
+                          : *m.coolant == grbl_protocol::CoolantMode::Mist ? "coolant=mist"
+                          : "coolant=flood"); }
+    char buf[32];
+    if (m.tool)          { std::snprintf(buf, sizeof(buf), "tool=%d", *m.tool);        add(buf); }
+    if (m.feed)          { std::snprintf(buf, sizeof(buf), "feed=%.0f", *m.feed);      add(buf); }
+    if (m.spindle_speed) { std::snprintf(buf, sizeof(buf), "S=%.0f", *m.spindle_speed); add(buf); }
+    return s;
+}
+
 std::string format_accessory(const grbl_protocol::AccessoryState& a) {
     std::string s;
     if (a.spindle_cw)  s += 'S';
@@ -241,6 +299,10 @@ std::string format_status(const grbl_protocol::StatusReport& sr) {
     if (sr.line_number) {
         std::snprintf(buf, sizeof(buf), " ln=%d", *sr.line_number);
         s += buf;
+    }
+    if (sr.modals && sr.modals->wcs) {
+        s += " wcs=";
+        s += wcs_name(*sr.modals->wcs);
     }
     if (sr.pins) {
         s += " pins=";
@@ -301,6 +363,11 @@ void classify(std::string_view line) {
         return;
     }
     if (auto m = parse_push_message(line)) {
+        if (m->key == "GC") {
+            auto modals = parse_modal_state(m->value);
+            std::printf("MODALS   %s\n", format_modals(modals).c_str());
+            return;
+        }
         if (m->key == "MSG") {
             auto dm = decode_message(m->value);
             const char* tag = "MSG";

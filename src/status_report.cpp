@@ -188,6 +188,8 @@ std::optional<StatusReport> parse_status_report(std::string_view line) {
                 auto n = parse_int(val);
                 if (!n) return std::nullopt;
                 report.line_number = n;
+            } else if (key == "G") {
+                report.modals = parse_modal_state(val);
             }
         }
 

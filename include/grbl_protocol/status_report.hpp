@@ -1,5 +1,7 @@
 #pragma once
 
+#include "grbl_protocol/modal_state.hpp"
+
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -80,6 +82,7 @@ struct StatusReport {
     std::optional<AccessoryState> a;
     std::optional<BufferState> bf;
     std::optional<int> line_number;
+    std::optional<ModalState> modals;  // populated from the `G:` field if present
 };
 
 std::optional<StatusReport> parse_status_report(std::string_view line);
