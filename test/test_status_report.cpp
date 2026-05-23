@@ -116,6 +116,56 @@ TEST_CASE("missing Pn leaves pins unset", "[status_report]") {
     REQUIRE_FALSE(r->pins.has_value());
 }
 
+TEST_CASE("parses full FluidNC-style report with WCO/Ov/A/Bf/Ln", "[status_report]") {
+    auto r = parse_status_report(
+        "<Run|MPos:1.0,2.0,3.0|FS:500,8000|Pn:P|Ov:100,90,110|A:SF|Bf:15,128|Ln:42|WCO:0.5,0.0,-0.25>");
+    REQUIRE(r.has_value());
+    REQUIRE(r->state == MachineState::Run);
+
+    REQUIRE(r->wco.has_value());
+    REQUIRE(r->wco->count == 3);
+    REQUIRE_THAT(r->wco->axes[0], WithinAbs(0.5,   1e-6));
+    REQUIRE_THAT(r->wco->axes[2], WithinAbs(-0.25, 1e-6));
+
+    REQUIRE(r->ov.has_value());
+    REQUIRE(r->ov->feed    == 100);
+    REQUIRE(r->ov->rapid   == 90);
+    REQUIRE(r->ov->spindle == 110);
+
+    REQUIRE(r->a.has_value());
+    REQUIRE(r->a->spindle_cw);
+    REQUIRE(r->a->flood);
+    REQUIRE_FALSE(r->a->spindle_ccw);
+    REQUIRE_FALSE(r->a->mist);
+
+    REQUIRE(r->bf.has_value());
+    REQUIRE(r->bf->planner_blocks == 15);
+    REQUIRE(r->bf->rx_bytes       == 128);
+
+    REQUIRE(r->line_number == 42);
+}
+
+TEST_CASE("accessory ignores unknown chars", "[status_report]") {
+    auto r = parse_status_report("<Run|MPos:0,0,0|A:MZ>");
+    REQUIRE(r.has_value());
+    REQUIRE(r->a.has_value());
+    REQUIRE(r->a->mist);
+    REQUIRE_FALSE(r->a->flood);
+}
+
+TEST_CASE("Ov rejects wrong arity", "[status_report]") {
+    REQUIRE_FALSE(parse_status_report("<Run|MPos:0,0,0|Ov:100,100>").has_value());
+    REQUIRE_FALSE(parse_status_report("<Run|MPos:0,0,0|Ov:100,100,100,100>").has_value());
+}
+
+TEST_CASE("Bf rejects single value", "[status_report]") {
+    REQUIRE_FALSE(parse_status_report("<Run|MPos:0,0,0|Bf:15>").has_value());
+}
+
+TEST_CASE("Ln rejects non-numeric", "[status_report]") {
+    REQUIRE_FALSE(parse_status_report("<Run|MPos:0,0,0|Ln:abc>").has_value());
+}
+
 TEST_CASE("rejects malformed reports", "[status_report]") {
     REQUIRE_FALSE(parse_status_report("Idle|MPos:0,0,0").has_value());      // no angle brackets
     REQUIRE_FALSE(parse_status_report("<>").has_value());                   // empty body

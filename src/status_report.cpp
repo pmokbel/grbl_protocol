@@ -29,7 +29,7 @@ std::optional<float> parse_float(std::string_view s) {
 std::optional<int> parse_int(std::string_view s) {
     int v{};
     auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
-    if (ec != std::errc{}) return std::nullopt;
+    if (ec != std::errc{} || ptr != s.data() + s.size()) return std::nullopt;
     return v;
 }
 
@@ -75,6 +75,52 @@ PinFlags parse_pins(std::string_view s) {
         }
     }
     return p;
+}
+
+AccessoryState parse_accessory(std::string_view s) {
+    AccessoryState a{};
+    for (char c : s) {
+        switch (c) {
+            case 'S': a.spindle_cw  = true; break;
+            case 'C': a.spindle_ccw = true; break;
+            case 'F': a.flood       = true; break;
+            case 'M': a.mist        = true; break;
+            default: break;
+        }
+    }
+    return a;
+}
+
+std::optional<Overrides> parse_overrides(std::string_view s) {
+    auto c1 = s.find(',');
+    if (c1 == std::string_view::npos) return std::nullopt;
+    auto c2 = s.find(',', c1 + 1);
+    if (c2 == std::string_view::npos) return std::nullopt;
+    if (s.find(',', c2 + 1) != std::string_view::npos) return std::nullopt;
+
+    auto f  = parse_int(s.substr(0, c1));
+    auto r  = parse_int(s.substr(c1 + 1, c2 - c1 - 1));
+    auto sp = parse_int(s.substr(c2 + 1));
+    if (!f || !r || !sp) return std::nullopt;
+    return Overrides{
+        static_cast<std::uint8_t>(*f),
+        static_cast<std::uint8_t>(*r),
+        static_cast<std::uint8_t>(*sp),
+    };
+}
+
+std::optional<BufferState> parse_buffer(std::string_view s) {
+    auto comma = s.find(',');
+    if (comma == std::string_view::npos) return std::nullopt;
+    if (s.find(',', comma + 1) != std::string_view::npos) return std::nullopt;
+
+    auto planner = parse_int(s.substr(0, comma));
+    auto rx      = parse_int(s.substr(comma + 1));
+    if (!planner || !rx) return std::nullopt;
+    return BufferState{
+        static_cast<std::uint16_t>(*planner),
+        static_cast<std::uint16_t>(*rx),
+    };
 }
 
 } // namespace
@@ -124,6 +170,24 @@ std::optional<StatusReport> parse_status_report(std::string_view line) {
                 report.fs = fs;
             } else if (key == "Pn") {
                 report.pins = parse_pins(val);
+            } else if (key == "WCO") {
+                auto w = parse_position(val);
+                if (!w) return std::nullopt;
+                report.wco = w;
+            } else if (key == "Ov") {
+                auto o = parse_overrides(val);
+                if (!o) return std::nullopt;
+                report.ov = o;
+            } else if (key == "A") {
+                report.a = parse_accessory(val);
+            } else if (key == "Bf") {
+                auto b = parse_buffer(val);
+                if (!b) return std::nullopt;
+                report.bf = b;
+            } else if (key == "Ln") {
+                auto n = parse_int(val);
+                if (!n) return std::nullopt;
+                report.line_number = n;
             }
         }
 

@@ -199,6 +199,16 @@ std::string format_position(const grbl_protocol::Position& p, const char* label)
     return s;
 }
 
+std::string format_accessory(const grbl_protocol::AccessoryState& a) {
+    std::string s;
+    if (a.spindle_cw)  s += 'S';
+    if (a.spindle_ccw) s += 'C';
+    if (a.flood)       s += 'F';
+    if (a.mist)        s += 'M';
+    if (s.empty()) s = "(none)";
+    return s;
+}
+
 std::string format_status(const grbl_protocol::StatusReport& sr) {
     std::string s = "STATUS   state=";
     s += state_name(sr.state);
@@ -209,8 +219,27 @@ std::string format_status(const grbl_protocol::StatusReport& sr) {
     }
     if (sr.mpos) s += format_position(*sr.mpos, "mpos");
     if (sr.wpos) s += format_position(*sr.wpos, "wpos");
+    if (sr.wco)  s += format_position(*sr.wco,  "wco");
     if (sr.fs) {
         std::snprintf(buf, sizeof(buf), " fs=(%.0f,%.0f)", sr.fs->feed, sr.fs->spindle);
+        s += buf;
+    }
+    if (sr.ov) {
+        std::snprintf(buf, sizeof(buf), " ov=(%u,%u,%u)",
+                      sr.ov->feed, sr.ov->rapid, sr.ov->spindle);
+        s += buf;
+    }
+    if (sr.a) {
+        s += " a=";
+        s += format_accessory(*sr.a);
+    }
+    if (sr.bf) {
+        std::snprintf(buf, sizeof(buf), " bf=(%u,%u)",
+                      sr.bf->planner_blocks, sr.bf->rx_bytes);
+        s += buf;
+    }
+    if (sr.line_number) {
+        std::snprintf(buf, sizeof(buf), " ln=%d", *sr.line_number);
         s += buf;
     }
     if (sr.pins) {

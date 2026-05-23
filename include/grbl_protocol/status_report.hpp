@@ -46,13 +46,40 @@ struct PinFlags {
     bool cycle_start{};
 };
 
+// "Ov:" feed/rapid/spindle override percentages (typical range 0..200).
+struct Overrides {
+    std::uint8_t feed{};
+    std::uint8_t rapid{};
+    std::uint8_t spindle{};
+};
+
+// "A:" accessory state -- a flag bag identical in shape to PinFlags.
+// Unrecognized characters are silently ignored.
+struct AccessoryState {
+    bool spindle_cw{};   // S
+    bool spindle_ccw{};  // C
+    bool flood{};        // F
+    bool mist{};         // M
+};
+
+// "Bf:" planner / serial-rx buffer state.
+struct BufferState {
+    std::uint16_t planner_blocks{};
+    std::uint16_t rx_bytes{};
+};
+
 struct StatusReport {
     MachineState state{};
     std::optional<int> sub_state;
     std::optional<Position> mpos;
     std::optional<Position> wpos;
+    std::optional<Position> wco;
     std::optional<FeedSpindle> fs;
     std::optional<PinFlags> pins;
+    std::optional<Overrides> ov;
+    std::optional<AccessoryState> a;
+    std::optional<BufferState> bf;
+    std::optional<int> line_number;
 };
 
 std::optional<StatusReport> parse_status_report(std::string_view line);
