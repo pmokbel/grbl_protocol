@@ -38,12 +38,46 @@ TEST_CASE("parses Hold with substate, WPos, and feed/spindle", "[status_report]"
     REQUIRE_THAT(r->fs->spindle, WithinAbs(8000.0, 1e-3));
 }
 
-TEST_CASE("ignores unknown fields like Ov and Pn", "[status_report]") {
-    auto r = parse_status_report("<Run|MPos:0,0,0|FS:0,0|Ov:100,100,100|Pn:XYZ>");
+TEST_CASE("parses Pn pins and ignores unknown fields like Ov", "[status_report]") {
+    auto r = parse_status_report("<Run|MPos:0,0,0|FS:0,0|Ov:100,100,100|Pn:XYZP>");
     REQUIRE(r.has_value());
     REQUIRE(r->state == MachineState::Run);
     REQUIRE(r->mpos.has_value());
     REQUIRE(r->fs.has_value());
+
+    REQUIRE(r->pins.has_value());
+    REQUIRE(r->pins->x);
+    REQUIRE(r->pins->y);
+    REQUIRE(r->pins->z);
+    REQUIRE(r->pins->probe);
+    REQUIRE_FALSE(r->pins->door);
+    REQUIRE_FALSE(r->pins->hold);
+    REQUIRE_FALSE(r->pins->soft_reset);
+    REQUIRE_FALSE(r->pins->cycle_start);
+}
+
+TEST_CASE("parses alarm with single tripped pin", "[status_report]") {
+    auto r = parse_status_report("<Alarm|MPos:0.000,0.000,0.000|Pn:Z>");
+    REQUIRE(r.has_value());
+    REQUIRE(r->state == MachineState::Alarm);
+    REQUIRE(r->pins.has_value());
+    REQUIRE_FALSE(r->pins->x);
+    REQUIRE_FALSE(r->pins->y);
+    REQUIRE(r->pins->z);
+}
+
+TEST_CASE("Pn ignores unknown pin characters", "[status_report]") {
+    auto r = parse_status_report("<Idle|MPos:0,0,0|Pn:XQ>");
+    REQUIRE(r.has_value());
+    REQUIRE(r->pins.has_value());
+    REQUIRE(r->pins->x);
+    REQUIRE_FALSE(r->pins->y);
+}
+
+TEST_CASE("missing Pn leaves pins unset", "[status_report]") {
+    auto r = parse_status_report("<Idle|MPos:0,0,0|FS:0,0>");
+    REQUIRE(r.has_value());
+    REQUIRE_FALSE(r->pins.has_value());
 }
 
 TEST_CASE("rejects malformed reports", "[status_report]") {

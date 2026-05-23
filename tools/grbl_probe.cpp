@@ -19,13 +19,45 @@
 #include <unistd.h>
 
 using namespace std::chrono_literals;
+using grbl_protocol::alarm_description;
+using grbl_protocol::MachineState;
 using grbl_protocol::parse_push_message;
 using grbl_protocol::parse_response;
 using grbl_protocol::parse_setting;
 using grbl_protocol::parse_status_report;
+using grbl_protocol::PinFlags;
 using grbl_protocol::ResponseKind;
 
 namespace {
+
+const char* state_name(MachineState s) {
+    switch (s) {
+        case MachineState::Idle:  return "Idle";
+        case MachineState::Run:   return "Run";
+        case MachineState::Hold:  return "Hold";
+        case MachineState::Jog:   return "Jog";
+        case MachineState::Alarm: return "Alarm";
+        case MachineState::Door:  return "Door";
+        case MachineState::Check: return "Check";
+        case MachineState::Home:  return "Home";
+        case MachineState::Sleep: return "Sleep";
+    }
+    return "?";
+}
+
+std::string format_pins(const PinFlags& p) {
+    std::string s;
+    if (p.x)            s += 'X';
+    if (p.y)            s += 'Y';
+    if (p.z)            s += 'Z';
+    if (p.probe)        s += 'P';
+    if (p.door)         s += 'D';
+    if (p.hold)         s += 'H';
+    if (p.soft_reset)   s += 'R';
+    if (p.cycle_start)  s += 'S';
+    if (s.empty()) s = "(none)";
+    return s;
+}
 
 int connect_tcp(const char* host, const char* port) {
     addrinfo hints{};
@@ -52,9 +84,19 @@ void classify(std::string_view line) {
     if (line.empty()) return;
     if (auto r = parse_response(line)) {
         switch (r->kind) {
-            case ResponseKind::Ok:    std::printf("RESPONSE ok\n"); break;
-            case ResponseKind::Error: std::printf("RESPONSE error code=%d\n", *r->code); break;
-            case ResponseKind::Alarm: std::printf("RESPONSE alarm code=%d\n", *r->code); break;
+            case ResponseKind::Ok:
+                std::printf("RESPONSE ok\n");
+                break;
+            case ResponseKind::Error:
+                std::printf("RESPONSE error code=%d\n", *r->code);
+                break;
+            case ResponseKind::Alarm: {
+                auto desc = alarm_description(*r->code);
+                std::printf("RESPONSE alarm code=%d -- %.*s\n",
+                            *r->code,
+                            static_cast<int>(desc.size()), desc.data());
+                break;
+            }
         }
         return;
     }
@@ -69,7 +111,18 @@ void classify(std::string_view line) {
         return;
     }
     if (auto sr = parse_status_report(line)) {
-        std::printf("STATUS   state=%d\n", static_cast<int>(sr->state));
+        std::printf("STATUS   state=%s", state_name(sr->state));
+        if (sr->sub_state) std::printf(":%d", *sr->sub_state);
+        if (sr->mpos)  std::printf(" mpos=(%.3f,%.3f,%.3f)",
+                                    sr->mpos->x, sr->mpos->y, sr->mpos->z);
+        if (sr->wpos)  std::printf(" wpos=(%.3f,%.3f,%.3f)",
+                                    sr->wpos->x, sr->wpos->y, sr->wpos->z);
+        if (sr->fs)    std::printf(" fs=(%.0f,%.0f)", sr->fs->feed, sr->fs->spindle);
+        if (sr->pins)  {
+            auto pins = format_pins(*sr->pins);
+            std::printf(" pins=%s", pins.c_str());
+        }
+        std::printf("\n");
         return;
     }
     std::printf("UNKNOWN  %.*s\n", static_cast<int>(line.size()), line.data());

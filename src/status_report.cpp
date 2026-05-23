@@ -59,6 +59,24 @@ std::optional<FeedSpindle> parse_fs(std::string_view s) {
     return FeedSpindle{*f, *sp};
 }
 
+PinFlags parse_pins(std::string_view s) {
+    PinFlags p{};
+    for (char c : s) {
+        switch (c) {
+            case 'X': p.x = true;            break;
+            case 'Y': p.y = true;            break;
+            case 'Z': p.z = true;            break;
+            case 'P': p.probe = true;        break;
+            case 'D': p.door = true;         break;
+            case 'H': p.hold = true;         break;
+            case 'R': p.soft_reset = true;   break;
+            case 'S': p.cycle_start = true;  break;
+            default: break;
+        }
+    }
+    return p;
+}
+
 } // namespace
 
 std::optional<StatusReport> parse_status_report(std::string_view line) {
@@ -104,6 +122,8 @@ std::optional<StatusReport> parse_status_report(std::string_view line) {
                 auto fs = parse_fs(val);
                 if (!fs) return std::nullopt;
                 report.fs = fs;
+            } else if (key == "Pn") {
+                report.pins = parse_pins(val);
             }
         }
 

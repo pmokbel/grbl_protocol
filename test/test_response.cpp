@@ -32,3 +32,17 @@ TEST_CASE("rejects non-response lines", "[response]") {
     REQUIRE_FALSE(parse_response("ALARM").has_value());
     REQUIRE_FALSE(parse_response("$10=1").has_value());
 }
+
+TEST_CASE("alarm_description maps known codes", "[response]") {
+    REQUIRE(alarm_description(1)  == "Hard limit triggered (rehome required)");
+    REQUIRE(alarm_description(5)  == "Probe fail (probe did not contact workpiece)");
+    REQUIRE(alarm_description(9)  == "Homing fail (could not find limit switch within search distance)");
+    REQUIRE(alarm_description(10) == "EStop asserted (clear and reset)");
+}
+
+TEST_CASE("alarm_description falls back for unknown codes", "[response]") {
+    REQUIRE(alarm_description(0)   == "Unknown alarm code");
+    REQUIRE(alarm_description(11)  == "Unknown alarm code");
+    REQUIRE(alarm_description(-1)  == "Unknown alarm code");
+    REQUIRE(alarm_description(999) == "Unknown alarm code");
+}

@@ -30,4 +30,20 @@ std::optional<Response> parse_response(std::string_view line) {
     return std::nullopt;
 }
 
+std::string_view alarm_description(int code) {
+    switch (code) {
+        case 1:  return "Hard limit triggered (rehome required)";
+        case 2:  return "G-code motion target exceeds machine travel";
+        case 3:  return "Reset while in motion (rehome recommended)";
+        case 4:  return "Probe fail (probe in unexpected initial state)";
+        case 5:  return "Probe fail (probe did not contact workpiece)";
+        case 6:  return "Homing fail (active homing cycle reset)";
+        case 7:  return "Homing fail (safety door opened during homing)";
+        case 8:  return "Homing fail (could not clear limit switch on pull-off)";
+        case 9:  return "Homing fail (could not find limit switch within search distance)";
+        case 10: return "EStop asserted (clear and reset)";
+        default: return "Unknown alarm code";
+    }
+}
+
 } // namespace grbl_protocol
