@@ -13,6 +13,7 @@ add_executable(grbl_protocol_tests
     test_push_message.cpp
     test_modal_state.cpp
     test_realtime.cpp
+    test_commands.cpp
 )
 target_link_libraries(grbl_protocol_tests PRIVATE
     grbl_protocol::grbl_protocol
