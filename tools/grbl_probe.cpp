@@ -1,5 +1,6 @@
 #include "grbl_protocol/modal_state.hpp"
 #include "grbl_protocol/push_message.hpp"
+#include "grbl_protocol/realtime.hpp"
 #include "grbl_protocol/response.hpp"
 #include "grbl_protocol/setting.hpp"
 #include "grbl_protocol/status_report.hpp"
@@ -370,19 +371,13 @@ bool send_all(int fd, std::string_view data) {
     return true;
 }
 
-// Single-char lines matching these are sent raw (no \n) so they're
-// interpreted as GRBL real-time commands rather than regular g-code lines.
-bool is_realtime(char c) {
-    return c == '?' || c == '!' || c == '~' || c == '\x18';
-}
-
 void handle_user_line(int fd, std::string_view line) {
     if (line.empty()) return;
     // Force the next STATUS to print regardless of whether the controller's
     // state actually changes: gives the user immediate visible confirmation
     // that their command landed, even when state is stable (e.g. in Hold).
     g_last_status.clear();
-    if (line.size() == 1 && is_realtime(line[0])) {
+    if (line.size() == 1 && grbl_protocol::realtime::is_realtime(static_cast<std::uint8_t>(line[0]))) {
         send_all(fd, line);
         return;
     }
