@@ -15,7 +15,7 @@ endif()
 
 cmake_minimum_required(VERSION 3.20)
 project(grbl_protocol
-    VERSION 0.3.0
+    VERSION 0.4.0
     DESCRIPTION "GRBL protocol parsing and framing library"
     LANGUAGES CXX
 )
