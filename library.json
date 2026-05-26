@@ -1,6 +1,6 @@
 {
   "name": "grbl_protocol",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "GRBL/FluidNC v1.1 wire protocol library (C++17, controller-agnostic): parsers, command constants, builders",
   "keywords": ["cnc", "grbl", "fluidnc", "parser", "motion-control"],
   "repository": {
