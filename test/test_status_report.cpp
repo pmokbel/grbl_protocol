@@ -179,8 +179,26 @@ TEST_CASE("Ov rejects wrong arity", "[status_report]") {
     REQUIRE_FALSE(parse_status_report("<Run|MPos:0,0,0|Ov:100,100,100,100>").has_value());
 }
 
+TEST_CASE("Ov rejects values that overflow uint8", "[status_report]") {
+    // Range-checked rather than silently wrapped (e.g. 300 -> 44).
+    REQUIRE_FALSE(parse_status_report("<Run|MPos:0,0,0|Ov:300,100,100>").has_value());
+    REQUIRE_FALSE(parse_status_report("<Run|MPos:0,0,0|Ov:100,-1,100>").has_value());
+    // 255 still fits.
+    auto r = parse_status_report("<Run|MPos:0,0,0|Ov:255,0,200>");
+    REQUIRE(r.has_value());
+    REQUIRE(r->ov->feed == 255);
+}
+
 TEST_CASE("Bf rejects single value", "[status_report]") {
     REQUIRE_FALSE(parse_status_report("<Run|MPos:0,0,0|Bf:15>").has_value());
+}
+
+TEST_CASE("Bf rejects values that overflow uint16", "[status_report]") {
+    REQUIRE_FALSE(parse_status_report("<Run|MPos:0,0,0|Bf:99999,128>").has_value());
+    // 65535 still fits.
+    auto r = parse_status_report("<Run|MPos:0,0,0|Bf:65535,128>");
+    REQUIRE(r.has_value());
+    REQUIRE(r->bf->planner_blocks == 65535);
 }
 
 TEST_CASE("Ln rejects non-numeric", "[status_report]") {

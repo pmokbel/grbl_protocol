@@ -1,10 +1,16 @@
 #include "grbl_protocol/status_report.hpp"
 
-#include <charconv>
-#include <system_error>
+#include "detail/num_parse.hpp"
+#include "detail/position_parse.hpp"
 
 namespace grbl_protocol {
 namespace {
+
+using detail::parse_float;
+using detail::parse_int;
+using detail::parse_position;
+using detail::parse_u16;
+using detail::parse_u8;
 
 std::optional<MachineState> parse_state(std::string_view s) {
     if (s == "Idle")  return MachineState::Idle;
@@ -17,37 +23,6 @@ std::optional<MachineState> parse_state(std::string_view s) {
     if (s == "Home")  return MachineState::Home;
     if (s == "Sleep") return MachineState::Sleep;
     return std::nullopt;
-}
-
-std::optional<float> parse_float(std::string_view s) {
-    float v{};
-    auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
-    if (ec != std::errc{}) return std::nullopt;
-    return v;
-}
-
-std::optional<int> parse_int(std::string_view s) {
-    int v{};
-    auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
-    if (ec != std::errc{} || ptr != s.data() + s.size()) return std::nullopt;
-    return v;
-}
-
-std::optional<Position> parse_position(std::string_view s) {
-    Position p{};
-    while (!s.empty() && p.count < p.axes.size()) {
-        auto comma = s.find(',');
-        auto tok = comma == std::string_view::npos ? s : s.substr(0, comma);
-        auto v = parse_float(tok);
-        if (!v) return std::nullopt;
-        p.axes[p.count++] = *v;
-        if (comma == std::string_view::npos) break;
-        s.remove_prefix(comma + 1);
-    }
-    if (p.count == 0) return std::nullopt;
-    // Axes beyond 6 are silently truncated -- forward-compat with any
-    // future fork that extends past XYZABC.
-    return p;
 }
 
 std::optional<FeedSpindle> parse_fs(std::string_view s) {
@@ -98,15 +73,11 @@ std::optional<Overrides> parse_overrides(std::string_view s) {
     if (c2 == std::string_view::npos) return std::nullopt;
     if (s.find(',', c2 + 1) != std::string_view::npos) return std::nullopt;
 
-    auto f  = parse_int(s.substr(0, c1));
-    auto r  = parse_int(s.substr(c1 + 1, c2 - c1 - 1));
-    auto sp = parse_int(s.substr(c2 + 1));
+    auto f  = parse_u8(s.substr(0, c1));
+    auto r  = parse_u8(s.substr(c1 + 1, c2 - c1 - 1));
+    auto sp = parse_u8(s.substr(c2 + 1));
     if (!f || !r || !sp) return std::nullopt;
-    return Overrides{
-        static_cast<std::uint8_t>(*f),
-        static_cast<std::uint8_t>(*r),
-        static_cast<std::uint8_t>(*sp),
-    };
+    return Overrides{*f, *r, *sp};
 }
 
 std::optional<BufferState> parse_buffer(std::string_view s) {
@@ -114,13 +85,10 @@ std::optional<BufferState> parse_buffer(std::string_view s) {
     if (comma == std::string_view::npos) return std::nullopt;
     if (s.find(',', comma + 1) != std::string_view::npos) return std::nullopt;
 
-    auto planner = parse_int(s.substr(0, comma));
-    auto rx      = parse_int(s.substr(comma + 1));
+    auto planner = parse_u16(s.substr(0, comma));
+    auto rx      = parse_u16(s.substr(comma + 1));
     if (!planner || !rx) return std::nullopt;
-    return BufferState{
-        static_cast<std::uint16_t>(*planner),
-        static_cast<std::uint16_t>(*rx),
-    };
+    return BufferState{*planner, *rx};
 }
 
 } // namespace

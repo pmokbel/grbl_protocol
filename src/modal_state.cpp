@@ -1,24 +1,12 @@
 #include "grbl_protocol/modal_state.hpp"
 
-#include <charconv>
-#include <system_error>
+#include "detail/num_parse.hpp"
 
 namespace grbl_protocol {
 namespace {
 
-std::optional<int> parse_int(std::string_view s) {
-    int v{};
-    auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
-    if (ec != std::errc{} || ptr != s.data() + s.size()) return std::nullopt;
-    return v;
-}
-
-std::optional<float> parse_float(std::string_view s) {
-    float v{};
-    auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
-    if (ec != std::errc{} || ptr != s.data() + s.size()) return std::nullopt;
-    return v;
-}
+using detail::parse_float;
+using detail::parse_int;
 
 void apply_g_token(std::string_view rest, ModalState& m) {
     // Motion
