@@ -15,6 +15,7 @@ add_executable(grbl_protocol_tests
     test_realtime.cpp
     test_commands.cpp
     test_line_kind.cpp
+    test_probe_report.cpp
 )
 target_link_libraries(grbl_protocol_tests PRIVATE
     grbl_protocol::grbl_protocol

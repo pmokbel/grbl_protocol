@@ -6,6 +6,7 @@ if(ESP_PLATFORM)
             "src/response.cpp"
             "src/push_message.cpp"
             "src/modal_state.cpp"
+            "src/probe_report.cpp"
         INCLUDE_DIRS
             "include"
     )
@@ -34,6 +35,7 @@ add_library(grbl_protocol
     src/response.cpp
     src/push_message.cpp
     src/modal_state.cpp
+    src/probe_report.cpp
 )
 add_library(grbl_protocol::grbl_protocol ALIAS grbl_protocol)
 
